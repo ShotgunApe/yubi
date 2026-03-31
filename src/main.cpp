@@ -11,18 +11,20 @@ typedef struct audio_wrapper {
     SDL_AudioStream* buffer;
 } audio_wrapper;
 
-int main(int argc, char** argv) {
-    SDL_Window* window;
-    SDL_Renderer* renderer;
-    SDL_Surface* surface;
-    SDL_Texture* texture;
+int main(int argc, char **argv) {
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+    SDL_Surface *surface;
+    SDL_Texture *texture;
 
     SDL_Event event;
     Uint64 d_time_now = SDL_GetPerformanceCounter();
     Uint64 d_time_last = 0;
     double delta_time, elapsed_time = 0;
 
-    SDL_Init(SDL_INIT_VIDEO & SDL_INIT_AUDIO);
+    // TODO: I guess make compiler flag to use different audio drivers
+    SDL_SetHintWithPriority("SDL_AUDIO_DRIVER", "pulseaudio", SDL_HINT_OVERRIDE);
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
     static SDL_AudioDeviceID audio_device = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, NULL);
     static audio_wrapper selected_song;
@@ -32,10 +34,15 @@ int main(int argc, char** argv) {
     SDL_CreateWindowAndRenderer("Audio Engine Testing", 640, 480, 0x00000000, &window, &renderer);
 
     if (!SDL_LoadWAV(argv[1], &spec, &selected_song.wav_data, &selected_song.wav_data_len)) {
+        SDL_Log("Usage: ./yubi 'file'");
         return 1;
     }
 
     selected_song.buffer = SDL_CreateAudioStream(&spec, NULL);
+    if (!SDL_BindAudioStream(audio_device, selected_song.buffer)) {
+        SDL_Log("Couldn't bind audio stream.");
+        return 1;
+    }
 
     bool running = true;
 
