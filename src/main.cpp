@@ -59,9 +59,15 @@ int main(int argc, char **argv) {
             }
         }
 
+        // TODO: Create multiple streams of audio (keysounds, hitsounds) and figure out realtime shit
+        if (SDL_GetAudioStreamQueued(selected_song.buffer) < ((int) selected_song.wav_data_len)) {
+            SDL_PutAudioStreamData(selected_song.buffer, selected_song.wav_data, (int) selected_song.wav_data_len);
+        }
+
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
         SDL_RenderClear(renderer);
 
+        // TODO: Create separate function to draw to the screen - only when delta target has been reached(?)
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
         const int charsize = SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE;
         SDL_RenderDebugTextFormat(renderer, 15, 15, "delta_time: %f", delta_time);
