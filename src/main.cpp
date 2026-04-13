@@ -12,7 +12,6 @@ static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int 
     // this doesn't need to do much for now - eventually this will add post-processing + additional sound effects to provide proper alignment
     additional_amount /= sizeof (float);
     for (int i = 0; i < additional_amount; i += 320 * sizeof(int16_t)) {
-        //buffer = nullptr);
         //SDL_PutAudioStreamData(stream, buffer);
     }
 }
@@ -54,6 +53,7 @@ int main(int argc, char **argv) {
     }
 
     SDL_IOStream *wav_to_vect = SDL_IOFromFile(argv[1], "rb");
+
     if (wav_to_vect == nullptr) {
         SDL_Log("SDL_IOFromFile failed, exiting...");
         return 1;
@@ -62,11 +62,14 @@ int main(int argc, char **argv) {
     size_t wav_len = SDL_GetIOSize(wav_to_vect);
     float *audio_file = new float[wav_len];
 
-    // TODO: copy wav_to_vect data to arr in heap
+    size_t bytes_read = SDL_ReadIO(wav_to_vect, audio_file, wav_len);
+
+    if (bytes_read != wav_len) {
+        SDL_Log("SDL_ReadIO did read entire file, exiting...");
+        return 1;
+    }
 
     SDL_CloseIO(wav_to_vect);
-
-    // only resume after audio is successfully loaded (First puts to buffer?)
     SDL_ResumeAudioStreamDevice(stream);
 
     bool running = true;
