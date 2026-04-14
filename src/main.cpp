@@ -7,12 +7,26 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_iostream.h>
+
+#define BUFFER_SIZE 256
+#define BUFFER_SIZE_CHAR "256"
 
 static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
     // this doesn't need to do much for now - eventually this will add post-processing + additional sound effects to provide proper alignment
     additional_amount /= sizeof (float);
-    for (int i = 0; i < additional_amount; i += 320 * sizeof(int16_t)) {
-        //SDL_PutAudioStreamData(stream, buffer);
+    static int current_pos = 0;
+    while (additional_amount > 0) {
+        float samples[128] = {0};
+        const int total = SDL_min(additional_amount, SDL_arraysize(samples));
+
+        for (int i = 0; i < total; i++) {
+            samples[i] = static_cast<float *>(userdata)[current_pos];
+            current_pos++;
+        }
+
+        SDL_PutAudioStreamData(stream, samples, total * sizeof (float));
+        additional_amount -= total;
     }
 }
 
@@ -27,19 +41,18 @@ int main(int argc, char **argv) {
     Uint64 d_time_now = SDL_GetPerformanceCounter();
     Uint64 d_time_last = 0;
     double delta_time, elapsed_time = 0;
-    const int target_fps = 240;
+    const int target_fps = 500;
 
+    // TODO: #ifdef with other target platforms for best realtime system (although maybe not necessary?)
     #ifdef __linux__
     SDL_SetHintWithPriority("SDL_AUDIO_DRIVER", "pulseaudio", SDL_HINT_OVERRIDE);
-    SDL_SetHintWithPriority("SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES", "240", SDL_HINT_OVERRIDE);
+    SDL_SetHintWithPriority("SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES", BUFFER_SIZE_CHAR, SDL_HINT_OVERRIDE);
     #endif
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     SDL_CreateWindowAndRenderer("Audio Engine Testing", 640, 480, 0x00000000, &window, &renderer);
 
-    SDL_AudioSpec spec {SDL_AUDIO_F32, 1, 44100};
-    stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, NULL);
-
+    // TODO: separate this shit into it's own helper funct to not clutter main'
     if (argc < 2) {
         SDL_Log("Usage: ./yubi '[file].wav'");
         return 1;
@@ -52,24 +65,27 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    SDL_IOStream *wav_to_vect = SDL_IOFromFile(argv[1], "rb");
+    SDL_IOStream *file_io = SDL_IOFromFile(argv[1], "rb");
 
-    if (wav_to_vect == nullptr) {
+    if (file_io == nullptr) {
         SDL_Log("SDL_IOFromFile failed, exiting...");
         return 1;
     }
 
-    size_t wav_len = SDL_GetIOSize(wav_to_vect);
+    size_t wav_len = SDL_GetIOSize(file_io);
     float *audio_file = new float[wav_len];
 
-    size_t bytes_read = SDL_ReadIO(wav_to_vect, audio_file, wav_len);
+    size_t bytes_read = SDL_ReadIO(file_io, audio_file, wav_len);
 
     if (bytes_read != wav_len) {
-        SDL_Log("SDL_ReadIO did read entire file, exiting...");
+        SDL_Log("SDL_ReadIO did not read entire file, exiting...");
         return 1;
     }
+    SDL_CloseIO(file_io);
 
-    SDL_CloseIO(wav_to_vect);
+    // At this point: A valid .wav audio file is saved in memory and ready to be read from with real-time shit
+    SDL_AudioSpec spec {SDL_AUDIO_S16, 2, 44100}; // IMPORTANT!!! - This needs to match the wav file you use
+    stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, audio_file);
     SDL_ResumeAudioStreamDevice(stream);
 
     bool running = true;
