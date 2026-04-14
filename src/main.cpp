@@ -84,7 +84,8 @@ int main(int argc, char **argv) {
     SDL_CloseIO(file_io);
 
     // At this point: A valid .wav audio file is saved in memory and ready to be read from with real-time shit
-    SDL_AudioSpec spec {SDL_AUDIO_S16, 2, 44100}; // IMPORTANT!!! - This needs to match the wav file you use
+    // IMPORTANT!!!! the spec MUST match spec of audio file used
+    SDL_AudioSpec spec {SDL_AUDIO_S16, 2, 44100};
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, audio_file);
     SDL_ResumeAudioStreamDevice(stream);
 
@@ -118,8 +119,10 @@ int main(int argc, char **argv) {
         // when waiting, use the modulus of target fps to account for any leftover delta time in between framegen and next target frame
     }
 
-    delete [] audio_file;
     SDL_DestroyWindow(window);
     SDL_Quit();
+
+    delete[] audio_file;
+
     return 0;
 }
