@@ -13,15 +13,15 @@
 #define BUFFER_SIZE_CHAR "256"
 
 static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
-    // this doesn't need to do much for now - eventually this will add post-processing + additional sound effects to provide proper alignment
+    SDL_Log("%i", additional_amount);
     additional_amount /= sizeof (float);
     static int current_pos = 0;
     while (additional_amount > 0) {
-        float samples[128] = {0};
+        float samples[32] = {0};
         const int total = SDL_min(additional_amount, SDL_arraysize(samples));
 
         for (int i = 0; i < total; i++) {
-            samples[i] = static_cast<float *>(userdata)[current_pos];
+            samples[i] = static_cast<float *> (userdata)[current_pos];
             current_pos++;
         }
 
@@ -46,13 +46,13 @@ int main(int argc, char **argv) {
     // TODO: #ifdef with other target platforms for best realtime system (although maybe not necessary?)
     #ifdef __linux__
     SDL_SetHintWithPriority("SDL_AUDIO_DRIVER", "pulseaudio", SDL_HINT_OVERRIDE);
-    SDL_SetHintWithPriority("SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES", BUFFER_SIZE_CHAR, SDL_HINT_OVERRIDE);
+    SDL_SetHintWithPriority("SDL_AUDIO_DEVICE_SAMPLE_FRAMES", BUFFER_SIZE_CHAR, SDL_HINT_OVERRIDE);
     #endif
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     SDL_CreateWindowAndRenderer("Audio Engine Testing", 640, 480, 0x00000000, &window, &renderer);
 
-    // TODO: separate this shit into it's own helper funct to not clutter main'
+    // TODO: separate this shit into it's own helper funct to not clutter main' - also, does this actually only work for wav files???
     if (argc < 2) {
         SDL_Log("Usage: ./yubi '[file].wav'");
         return 1;
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
     SDL_CloseIO(file_io);
 
     // At this point: A valid .wav audio file is saved in memory and ready to be read from with real-time shit
-    // IMPORTANT!!!! the spec MUST match spec of audio file used
+    // IMPORTANT!!!! the spec MUST match spec of audio file used TODO: is there some  way to detect this automatically?
     SDL_AudioSpec spec {SDL_AUDIO_S16, 2, 44100};
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, audio_file);
     SDL_ResumeAudioStreamDevice(stream);
@@ -101,6 +101,11 @@ int main(int argc, char **argv) {
             // TODO: add switch statement here for different types of input
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
+            }
+            if (event.type == SDL_EVENT_KEY_DOWN) {
+                if (event.key.scancode == SDL_SCANCODE_SPACE) {
+                    // do something (eventually)
+                }
             }
         }
 
