@@ -12,8 +12,41 @@
 #define BUFFER_SIZE 256
 #define BUFFER_SIZE_CHAR "256"
 
-static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
-    SDL_Log("%i", additional_amount);
+void set_hints() {
+    #ifdef __linux__
+    SDL_SetHintWithPriority("SDL_AUDIO_DRIVER", "pulseaudio", SDL_HINT_OVERRIDE);
+    SDL_SetHintWithPriority("SDL_AUDIO_DEVICE_SAMPLE_FRAMES", BUFFER_SIZE_CHAR, SDL_HINT_OVERRIDE);
+    #endif
+}
+
+float* load_wav(const std::string file_to_open) {
+    struct stat tmp_buf;
+    if (stat(file_to_open.c_str(), &tmp_buf) != 0) {
+        SDL_Log("File does not exist, exiting...");
+        std::exit(1);
+    }
+
+    SDL_IOStream *file_io = SDL_IOFromFile(file_to_open.c_str(), "rb");
+    size_t file_len = SDL_GetIOSize(file_io);
+
+    if (file_io == nullptr) {
+        SDL_Log("SDL_IOFromFile failed, exiting...");
+        std::exit(1);
+    }
+
+    float *to_return = new float[file_len];
+    size_t bytes_read = SDL_ReadIO(file_io, to_return, file_len);
+
+    if (bytes_read != file_len) {
+        SDL_Log("SDL_ReadIO did not read entire file, exiting...");
+        std::exit(1);
+    }
+
+    SDL_CloseIO(file_io);
+    return to_return;
+}
+
+static void SDLCALL primary_audio_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) {
     additional_amount /= sizeof (float);
     static int current_pos = 0;
     while (additional_amount > 0) {
@@ -31,62 +64,29 @@ static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int 
 }
 
 int main(int argc, char **argv) {
+    if (argc < 2) { SDL_Log("Usage: ./yubi '[file].wav'"); std::exit(1); } set_hints();
+
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Surface *surface;
     SDL_Texture *texture;
-    SDL_AudioStream *stream;
-
+    SDL_AudioStream *stream, *click;
     SDL_Event event;
+
     Uint64 d_time_now = SDL_GetPerformanceCounter();
     Uint64 d_time_last = 0;
     double delta_time, elapsed_time = 0;
     const int target_fps = 500;
 
-    // TODO: #ifdef with other target platforms for best realtime system (although maybe not necessary?)
-    #ifdef __linux__
-    SDL_SetHintWithPriority("SDL_AUDIO_DRIVER", "pulseaudio", SDL_HINT_OVERRIDE);
-    SDL_SetHintWithPriority("SDL_AUDIO_DEVICE_SAMPLE_FRAMES", BUFFER_SIZE_CHAR, SDL_HINT_OVERRIDE);
-    #endif
-
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     SDL_CreateWindowAndRenderer("Audio Engine Testing", 640, 480, 0x00000000, &window, &renderer);
 
-    // TODO: separate this shit into it's own helper funct to not clutter main' - also, does this actually only work for wav files???
-    if (argc < 2) {
-        SDL_Log("Usage: ./yubi '[file].wav'");
-        return 1;
-    }
-
-    struct stat tmp_buf;
-    const std::string file_to_open = argv[1];
-    if (stat(file_to_open.c_str(), &tmp_buf) != 0) {
-        SDL_Log("File does not exist, exiting...");
-        return 1;
-    }
-
-    SDL_IOStream *file_io = SDL_IOFromFile(argv[1], "rb");
-
-    if (file_io == nullptr) {
-        SDL_Log("SDL_IOFromFile failed, exiting...");
-        return 1;
-    }
-
-    size_t wav_len = SDL_GetIOSize(file_io);
-    float *audio_file = new float[wav_len];
-
-    size_t bytes_read = SDL_ReadIO(file_io, audio_file, wav_len);
-
-    if (bytes_read != wav_len) {
-        SDL_Log("SDL_ReadIO did not read entire file, exiting...");
-        return 1;
-    }
-    SDL_CloseIO(file_io);
+    float *audio_file = load_wav(argv[1]);
 
     // At this point: A valid .wav audio file is saved in memory and ready to be read from with real-time shit
     // IMPORTANT!!!! the spec MUST match spec of audio file used TODO: is there some  way to detect this automatically?
     SDL_AudioSpec spec {SDL_AUDIO_S16, 2, 44100};
-    stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, audio_file);
+    stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, primary_audio_callback, audio_file);
     SDL_ResumeAudioStreamDevice(stream);
 
     bool running = true;
@@ -101,11 +101,6 @@ int main(int argc, char **argv) {
             // TODO: add switch statement here for different types of input
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
-            }
-            if (event.type == SDL_EVENT_KEY_DOWN) {
-                if (event.key.scancode == SDL_SCANCODE_SPACE) {
-                    // do something (eventually)
-                }
             }
         }
 
