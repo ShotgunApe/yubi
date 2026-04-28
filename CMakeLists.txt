@@ -9,6 +9,14 @@ add_executable(yubi)
 target_sources(yubi
     PRIVATE
     src/main.cpp
+
+    src/engine/audio/audio.h
+    src/engine/audio/audio.cpp
+
+    src/engine/os/filesystem.h
+    src/engine/os/hints.h
+    src/engine/os/filesystem.cpp
+    src/engine/os/hints.cpp
 )
 
 target_link_libraries(yubi
