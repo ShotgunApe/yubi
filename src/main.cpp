@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     Uint64 d_time_now = SDL_GetPerformanceCounter();
     Uint64 d_time_last = 0;
     double delta_time, elapsed_time = 0;
-    const int target_fps = 500;
+    const double target_fps = 4;
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     SDL_CreateWindowAndRenderer("Audio Engine Testing", 640, 480, 0x00000000, &window, &renderer);
@@ -30,7 +30,6 @@ int main(int argc, char **argv) {
     float *audio_file = os_junk::load_file_to_ptr(argv[1]);
     if (audio_file == nullptr) { std::exit(1); }
 
-    // At this point: A valid .wav audio file is saved in memory and ready to be read from with real-time shit
     // IMPORTANT!!!! the spec MUST match spec of audio file used TODO: is there some  way to detect this automatically?
     SDL_AudioSpec spec {SDL_AUDIO_S16, 2, 44100};
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, realtime_audio::primary_audio_callback, audio_file);
@@ -40,10 +39,8 @@ int main(int argc, char **argv) {
 
     while (running) {
         d_time_last = d_time_now;
-        d_time_now = SDL_GetPerformanceCounter();
-        delta_time = (double) ((d_time_now - d_time_last) * 1000 / (double) SDL_GetPerformanceFrequency());
-        elapsed_time += delta_time;
 
+        // TODO: move this to separate thread
         while (SDL_PollEvent(&event)) {
             // TODO: add switch statement here for different types of input
             if (event.type == SDL_EVENT_QUIT) {
@@ -63,7 +60,11 @@ int main(int argc, char **argv) {
 
         SDL_RenderPresent(renderer);
 
-        // when waiting, use the modulus of target fps to account for any leftover delta time in between framegen and next target frame
+        d_time_now = SDL_GetPerformanceCounter();
+        delta_time = (double) ((d_time_now - d_time_last) * 1000 / (double) SDL_GetPerformanceFrequency());
+        elapsed_time += delta_time;
+
+        SDL_DelayPrecise((Uint64) 1000000 * (1000 / target_fps) - delta_time);
     }
 
     SDL_DestroyWindow(window);
