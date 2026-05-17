@@ -23,10 +23,10 @@ int main(int argc, char **argv) {
 
     Uint64 d_time_now = SDL_GetPerformanceCounter();
     Uint64 d_time_last = 0;
-    double delta_time = 0;
-    double elapsed_time = 0;
+    Uint8 color = 0x00;
+    double delta_time, elapsed_time = 0;
     Sint32 ns_wait_variance = 520000;
-    const double target_fps = 40;
+    const double target_fps = 24;
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     SDL_CreateWindowAndRenderer("Audio Engine Testing", 640, 480, 0x00000000, &window, &renderer);
@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
         // 468.75f comes from 60000 / BPM for bpm->ms conversion
         // TODO: replace fmod with own built-in funct
         // TODO: desync still occurs sometimes(?) so I need to investigate further
-        int color = fmod(elapsed_time, 468.75f) / 8;
+        color = fmod(elapsed_time, 468.75f) / 8;
 
         SDL_SetRenderDrawColor(renderer, 0x00, color, color, 0x00);
         SDL_RenderClear(renderer);
@@ -79,12 +79,7 @@ int main(int argc, char **argv) {
         delta_time = (double) ((d_time_now - d_time_last) * 1000 / (double) SDL_GetPerformanceFrequency());
         elapsed_time += delta_time;
 
-        if (1000 / target_fps > delta_time) {
-            ns_wait_variance -= 500;
-        } else {
-            ns_wait_variance += 500;
-        }
-
+        ns_wait_variance = (1000 / target_fps > delta_time) ? ns_wait_variance -= 500 : ns_wait_variance += 500;
         SDL_DelayPrecise((Uint64) ((1000 / target_fps) * 1000000) - ns_wait_variance);
     }
 
