@@ -5,6 +5,8 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 
+#include <cmath>
+
 #include "engine/audio/audio.h"
 #include "engine/os/filesystem.h"
 #include "engine/os/hints.h"
@@ -21,14 +23,19 @@ int main(int argc, char **argv) {
 
     Uint64 d_time_now = SDL_GetPerformanceCounter();
     Uint64 d_time_last = 0;
-    double delta_time, elapsed_time = 0;
-    const double target_fps = 4;
+    double delta_time = 0;
+    double elapsed_time = 0;
+    Sint32 ns_wait_variance = 520000;
+    const double target_fps = 40;
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     SDL_CreateWindowAndRenderer("Audio Engine Testing", 640, 480, 0x00000000, &window, &renderer);
 
-    float *audio_file = os_junk::load_file_to_ptr(argv[1]);
+    char *audio_file = os_junk::load_file_to_ptr(argv[1]);
     if (audio_file == nullptr) { std::exit(1); }
+    // once file is loaded, use separate function to parse header and save to its own struct
+    // use members of such struct to specify the audiospec and ensure any type of wav file is valid
+    // TODO: Should I adjust the buffer size with regard to different sample rates?
 
     // IMPORTANT!!!! the spec MUST match spec of audio file used TODO: is there some  way to detect this automatically?
     SDL_AudioSpec spec {SDL_AUDIO_S16, 2, 44100};
@@ -48,7 +55,12 @@ int main(int argc, char **argv) {
             }
         }
 
-        SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
+        // 468.75f comes from 60000 / BPM for bpm->ms conversion
+        // TODO: replace fmod with own built-in funct
+        // TODO: desync still occurs sometimes(?) so I need to investigate further
+        int color = fmod(elapsed_time, 468.75f) / 8;
+
+        SDL_SetRenderDrawColor(renderer, 0x00, color, color, 0x00);
         SDL_RenderClear(renderer);
 
         // TODO: Create separate function to draw to the screen - only when delta target has been reached(?)
@@ -56,7 +68,10 @@ int main(int argc, char **argv) {
         const int charsize = SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE;
         SDL_RenderDebugTextFormat(renderer, 15, 15, "delta_time: %f", delta_time);
         SDL_RenderDebugTextFormat(renderer, 15, 25, "elapsed_time: %f", elapsed_time * 0.001);
-        SDL_RenderDebugTextFormat(renderer, 15, 35, "fps: %f", (1000 / delta_time));
+        SDL_RenderDebugTextFormat(renderer, 15, 35, "fps: %i", (int) (1000 / delta_time));
+        SDL_RenderDebugTextFormat(renderer, 15, 45, "ns_wait_variance: %i", ns_wait_variance);
+        SDL_RenderDebugTextFormat(renderer, 15, 55, "difference: %f", (1000 / target_fps) - delta_time);
+        SDL_RenderDebugTextFormat(renderer, 15, 65, "fmod: %f", fmod(elapsed_time, 468.75f));
 
         SDL_RenderPresent(renderer);
 
@@ -64,7 +79,13 @@ int main(int argc, char **argv) {
         delta_time = (double) ((d_time_now - d_time_last) * 1000 / (double) SDL_GetPerformanceFrequency());
         elapsed_time += delta_time;
 
-        SDL_DelayPrecise((Uint64) 1000000 * (1000 / target_fps) - delta_time);
+        if (1000 / target_fps > delta_time) {
+            ns_wait_variance -= 500;
+        } else {
+            ns_wait_variance += 500;
+        }
+
+        SDL_DelayPrecise((Uint64) ((1000 / target_fps) * 1000000) - ns_wait_variance);
     }
 
     SDL_DestroyWindow(window);

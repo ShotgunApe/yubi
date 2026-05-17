@@ -15,7 +15,9 @@
 
 // TODO: create function that generates filesystem on first boot - use posix functions to quickly get lists of songs
 namespace os_junk {
-    float* load_file_to_ptr(const std::string file_to_open);
+    struct wav_header;
+    char* load_file_to_ptr(const std::string file_to_open);
+    wav_header* parse_file_header(const char* file_ptr);
 }
 
 #endif
