@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-#include "engine/audio/audio.h"
+#include "engine/threads/audio.h"
 #include "engine/os/filesystem.h"
 #include "engine/os/hints.h"
 

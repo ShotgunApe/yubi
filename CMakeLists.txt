@@ -10,8 +10,8 @@ target_sources(yubi
     PRIVATE
     src/main.cpp
 
-    src/engine/audio/audio.h
-    src/engine/audio/audio.cpp
+    src/engine/threads/audio.h
+    src/engine/threads/audio.cpp
 
     src/engine/os/filesystem.h
     src/engine/os/hints.h
