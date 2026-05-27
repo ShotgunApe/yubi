@@ -24,9 +24,11 @@ int main(int argc, char **argv) {
     Uint64 d_time_now = SDL_GetPerformanceCounter();
     Uint64 d_time_last = 0;
     Uint8 color = 0x00;
-    double delta_time, elapsed_time = 0;
+
     Sint32 ns_wait_variance = 520000;
-    const double target_fps = 24;
+
+    double delta_time, elapsed_time = 0;
+    const double target_fps = 800;
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     SDL_CreateWindowAndRenderer("Audio Engine Testing", 640, 480, 0x00000000, &window, &renderer);
@@ -40,6 +42,9 @@ int main(int argc, char **argv) {
     // IMPORTANT!!!! the spec MUST match spec of audio file used TODO: is there some  way to detect this automatically?
     SDL_AudioSpec spec {SDL_AUDIO_S16, 2, 44100};
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, realtime_audio::primary_audio_callback, audio_file);
+
+    SDL_Delay(100);
+
     SDL_ResumeAudioStreamDevice(stream);
 
     bool running = true;
@@ -79,7 +84,8 @@ int main(int argc, char **argv) {
         delta_time = (double) ((d_time_now - d_time_last) * 1000 / (double) SDL_GetPerformanceFrequency());
         elapsed_time += delta_time;
 
-        ns_wait_variance = (1000 / target_fps > delta_time) ? ns_wait_variance -= 500 : ns_wait_variance += 500;
+        // TODO: prevent wait variance from shooting off in either +- if FPS cannot keep up with target
+        ns_wait_variance = (1000 / target_fps > delta_time) ? ns_wait_variance -= 250 : ns_wait_variance += 250;
         SDL_DelayPrecise((Uint64) ((1000 / target_fps) * 1000000) - ns_wait_variance);
     }
 

@@ -12,6 +12,10 @@ target_sources(yubi
 
     src/engine/threads/audio.h
     src/engine/threads/audio.cpp
+    src/engine/threads/input.h
+    src/engine/threads/input.cpp
+    src/engine/threads/yubi.h
+    src/engine/threads/yubi.cpp
 
     src/engine/os/filesystem.h
     src/engine/os/hints.h
